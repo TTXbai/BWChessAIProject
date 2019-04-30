@@ -1,10 +1,11 @@
-#include "stdio.h"
+#include <stdio.h>
+#include <string.h>
 #include "PlayGame.h"
 
 int Chessboard[64];
 int Playableboard[64];
 
-int main()
+/*int main()
 {
 	int turn = BLACK;
 	int row,line;
@@ -30,9 +31,10 @@ int main()
 			if(PlayChess(row,line,turn))
 			turn = BLACK;
 		}
+		//Judge if game over
 	}
 	return 0;
-}
+}*/
 
 void InitChessboard()
 {
@@ -891,12 +893,13 @@ void DrawChessboard()
 		for(j = 0; j < 8; j++)
 		{
 			if(Chessboard[i * 8 + j] == BLANK)
-				printf("0 ");
+				printf(" + ");
 			else if(Chessboard[i *8 +j] == BLACK)
-				printf("1 ");
+				printf("⚫ ");
 			else if(Chessboard[i* 8 +j] == WHITE)
-				printf("2 ");
+				printf("⚪ ");
 		}
+		putchar('\n');
 		putchar('\n');
 	}
 	return;
@@ -906,8 +909,10 @@ void DrawPlayableboard()
 {
 	putchar('\n');
 	int i,j;
+	printf("  0 1 2 3 4 5 6 7\n");
 	for(i = 0; i < 8; i++)
 	{
+		printf("%d ", i);
 		for(j = 0; j < 8; j++)
 		{
 			if(Playableboard[i * 8 + j] == 0)
@@ -918,4 +923,49 @@ void DrawPlayableboard()
 		putchar('\n');
 	}
 	return;
+}
+
+int IfGameOver(int Chessboard_A[64])
+{
+	int i;
+	/*judge if all ChessBoard is over*/
+	for(i = 0; i < 64; i++)
+	{
+		if(Chessboard_A[i] == BLANK)
+			break;
+	}
+	if(i == 64) return 1;
+	/*judge if white win*/
+	for(i = 0; i < 64; i++)
+	{
+		if(Chessboard_A[i] == BLACK) 
+			break;
+	}
+	if(i == 64) return 1;
+	/*judge if black win*/
+	for(i = 0; i < 64; i++)
+	{
+		if(Chessboard_A[i] == WHITE)
+			break;
+	}
+	if(i == 64) return 1;
+	memcpy(Chessboard,Chessboard_A,sizeof(int)*64);
+	RefreshPlayableboard(BLACK);
+	for(i = 0; i < 64; i++)
+	{
+		if(Playableboard[i] == 1)
+			break;
+	}
+	if(i == 64)
+	{
+		RefreshPlayableboard(WHITE);
+		for(i = 0; i < 64; i++)
+		{
+			if(Playableboard[i] == 1)
+				break;
+		}
+		if(i == 64)
+			return 1;
+	}
+	return 0;
 }
