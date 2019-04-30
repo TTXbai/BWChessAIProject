@@ -32,17 +32,6 @@ int judgeValue(int Chessboard[64])
 	return value * turn_flag;
 }
 
-int judgeValue2(int Chessboard[64])
-{
-	int value = 0;
-	for (int i = 0; i < 64; ++i)
-	{
-		value += Chessboard[i] * weight[i];
-	}
-	return value * turn_flag;
-}
-
-
 /*
 1. create the root node of search tree
 2. create the tree nodes by PlayableBoard 
@@ -178,25 +167,6 @@ void reverse_passing(struct PlayNode* p,int passing_value)
 		free(p);
 	return;
 }
-
-void reverse_passing2(struct PlayNode*p, int passing_value)
-{
-	if(p -> Father == NULL)
-		return;
-	if(p -> Child == NULL)
-	{
-		int value = judgeValue2(p->Chessboard);
-		p -> Father -> value += value;
-		reverse_passing(p -> Father, value);
-	} 
-	else
-	{
-		p -> Father -> value += passing_value;
-		reverse_passing(p -> Father, passing_value);
-	}
-	return;
-}
-
 
 /*
 Expand the search tree according to PlayableBoard
