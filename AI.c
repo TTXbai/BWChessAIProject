@@ -4,27 +4,30 @@
 #include <string.h>
 #include <time.h>
 #include "AI.h"
-#include "PlayGame.h"
+
 
 int turn_flag;
 int runtime;
 double total_time;
+int Playableboard[64];
+int Chessboard[64];
+
 //weight
 const int weight[64] = {
-	2000,-25,100,100,100,100,-25,2000,
+	400,-25,100,100,100,100,-25,400,
 	-25,-50,5,5,5,5,-50,-25,
 	100,5,1,1,1,1,5,100,
 	100,5,1,1,1,1,5,100,
 	100,5,1,1,1,1,5,100,
 	100,5,1,1,1,1,5,100,
 	-25,-50,5,5,5,5,-50,-25,
-	2000,-25,100,100,100,100,-25,2000
+	400,-25,100,100,100,100,-25,400
 };
 
 /*Easily judge first, and should be update*/  
-int judgeValue(int Chessboard[64])
+float judgeValue(int Chessboard[64])
 {
-	int value = 0;
+	float value = 0;
 	for (int i = 0; i < 64; ++i)
 	{
 		value += Chessboard[i];
@@ -32,14 +35,18 @@ int judgeValue(int Chessboard[64])
 	return value * turn_flag;
 }
 
-int judgeValue2(int Chessboard[64])
+float judgeValue2(int Chessboard[64],int PlayableNum,float Constant)
 {
-	int value = 0;
+	float value = 0;
 	for (int i = 0; i < 64; ++i)
 	{
 		value += Chessboard[i] * weight[i];
 	}
-	return value * turn_flag;
+	value = value * Constant + (float)PlayableNum * turn_flag * 10 * (1 - Constant);
+	if (turn_flag == 1)
+		return value;
+	else
+		return value * (-1.0);
 }
 
 
@@ -49,16 +56,16 @@ int judgeValue2(int Chessboard[64])
 3. Using AI_process to proces the search
 4. Choose the maximun value to return
 */
-void AI_start(int Chessboard[64], int Playableboard[64], int turn)
+int AI_start(int Chessboard[64], int Playableboard[64], int turn, char* config)
 {
 	struct PlayNode* root = New_PlayNode(Chessboard, Playableboard, turn, NULL);
 	//printf("Debug: AI start\nFirst step: expand_search_tree...\n");
 	expand_search_tree(root);
 	//printf("Debug: Second step: AI_process...\n");
-	AI_process(root);
-	Print_choice(root);
+	AI_process(root,config);
+	int num = Print_choice(root);
 	Free_all(root);
-	return;
+	return num;
 }
 
 /*
@@ -68,11 +75,13 @@ void AI_start(int Chessboard[64], int Playableboard[64], int turn)
 3.the leaf node should get a random number to process the last chessboard situation
 4.reverse_passing the node and finally update each node
 */
-void AI_process(struct PlayNode* root)
+void AI_process(struct PlayNode* root, char* config)
 {
 	int i, times;
 	clock_t start,end;
 	struct PlayNode* temp,*final;
+	float Constant[64];
+	Init_Constant(config, Constant);
 	//printf("Debug: Start loop\n");
 	start = clock();
 	for(times = 0; times < PROCESS_TIME; times++)
@@ -88,10 +97,11 @@ void AI_process(struct PlayNode* root)
 		}
 		//printf("Debug :Start Random_get_final_PlayNode\n");
 		final = Random_get_final_PlayNode(temp);
+
 		reverse_passing(final, 0);
+		reverse_passing2(temp, judgeValue2(temp->Chessboard,temp->PlayableNum, Constant[temp -> runtime]) , Constant);
 		//added a new way to balance the random result, while at the last will not determine with it
-		if(runtime <= 45)
-		reverse_passing2(temp, 0);
+		
 	}
 	end = clock();
 	total_time += (double)(end-start)/CLOCKS_PER_SEC;
@@ -155,13 +165,13 @@ struct PlayNode * Random_get_final_PlayNode(struct PlayNode* p)
 update the f = f+1, value = value + child_value
 	until the father is NULL
 */
-void reverse_passing(struct PlayNode* p,int passing_value)
+void reverse_passing(struct PlayNode* p,float passing_value)
 {
 	if(p -> Father == NULL)
 		return;
 	if(p -> Random_Child == NULL && p -> Child == NULL)
 	{
-		int value = judgeValue(p->Chessboard);
+		float value = judgeValue(p->Chessboard);
 		p -> value = value;
 		p -> frequency = p -> frequency + 1;
 		p -> Father -> value += p -> value;
@@ -179,20 +189,22 @@ void reverse_passing(struct PlayNode* p,int passing_value)
 	return;
 }
 
-void reverse_passing2(struct PlayNode*p, int passing_value)
+void reverse_passing2(struct PlayNode*p, float passing_value, float Constant[64])
 {
+	//printf("passing value = %lf\n",passing_value);
 	if(p -> Father == NULL)
 		return;
 	if(p -> Child == NULL)
 	{
-		int value = judgeValue2(p->Chessboard);
+		//printf("runtime = %d\n",p -> runtime);
+		float value = judgeValue2(p->Chessboard,p->PlayableNum, Constant[p -> runtime]);
 		p -> Father -> value += value;
-		reverse_passing(p -> Father, value);
+		reverse_passing2(p -> Father, value, Constant);
 	} 
 	else
 	{
 		p -> Father -> value += passing_value;
-		reverse_passing(p -> Father, passing_value);
+		reverse_passing2(p -> Father, passing_value, Constant);
 	}
 	return;
 }
@@ -267,6 +279,14 @@ struct PlayNode * New_PlayNode(int Chessboard[64], int Playableboard[64], int tu
 	p -> Father = Father;
 	p -> Child = NULL;
 	p -> Random_Child = NULL;
+	if( p -> Father)
+	{
+		p -> runtime = p->Father->runtime+1;
+	}
+	else
+	{
+		p -> runtime = runtime;
+	}
 	return p;
 }
 
@@ -286,7 +306,7 @@ float Calculate_value(struct PlayNode* p)
  	}
 }
 
-void Print_choice(struct PlayNode* p)
+int Print_choice(struct PlayNode* p)
 {
 	int i;
 	float score = -INFINITE, temp;
@@ -303,7 +323,7 @@ void Print_choice(struct PlayNode* p)
 			break;
 	}
 	//debug
-	//printf("Choose the %d child, score = %lf\n", index, score);
+	printf("Choose the %d child, score = %lf\n", index, score);
 	for(i = 0; i < 64; i++)
 	{
 		if(p -> Playableboard[i] == 1)
@@ -311,9 +331,8 @@ void Print_choice(struct PlayNode* p)
 		if(index < 0)
 			break;
 	}
-	printf("Row = %d, Line = %d \n", i / 8, i % 8);
 	printf("Total time = %f s\n", total_time);
-	return;
+	return i;
 }
 
 struct PlayNode * Get_Max_Value_Of_Node(struct PlayNode* root)
@@ -345,10 +364,16 @@ void Free_all(struct PlayNode* p)
 		free(p);
 		return;
 	}
-	else
+	else if(p -> PlayableNum > 0)
 	{
 		for(i = 0; i < p -> PlayableNum; i++)
 			Free_all(p -> Child[i]);
+		free(p);
+		return;
+	}
+	else 
+	{
+		Free_all(p -> Child[0]);
 		free(p);
 		return;
 	}
@@ -363,85 +388,26 @@ void init()
 	return;
 }
 
-/*still no main*/
-int main()
+void Init_Constant(char *config, float Constant[64])
 {
-	int turn = BLACK;
-	int row,line;
-	int i;
-	int input;
-	init();
-	InitChessboard();
-	int tempChessboard[64];
-	int tempPlayableboard[64];
-	//turn_flag = BLACK;
-	printf("Welcome to Reversi AI created by TTX\n");
-	printf("Please input the AI side: 0 for Black and others for WHITE\n");
-	scanf("%d", &input);
-	if(input)
-		turn_flag = WHITE;
-	else
-		turn_flag = BLACK;
-	while(1)
-	{
-		DrawChessboard();
-		if(turn == BLACK)
-		{
-			RefreshPlayableboard(turn);
-			for(i = 0; i < 64; i++)if(Playableboard[i])break;
-			if(i == 64)
-			{
-				turn = WHITE;
-				continue;
-			}
-			DrawPlayableboard();
-			if(turn_flag == BLACK)
-			{
-				memcpy(tempChessboard, Chessboard, sizeof(int) * 64);
-				memcpy(tempPlayableboard, Playableboard, sizeof(int) * 64);
-				AI_start(Chessboard, Playableboard, turn);
-				memcpy(Chessboard,tempChessboard,sizeof(int) * 64);
-				memcpy(Playableboard, tempPlayableboard, sizeof(int) * 64);
-			}
-			printf("It is BLACK turn, please input row and line:\n");
-			scanf("%d %d",&row,&line);
-			if(PlayChess(row,line,turn))
-			{
-				turn = WHITE;
-				runtime++; 
-			}
-		}
-		else if(turn == WHITE)
-		{
-			RefreshPlayableboard(turn);
-			for(i = 0; i < 64; i++)if(Playableboard[i])break;
-			if(i == 64)
-			{
-				turn = BLACK;
-				continue;
-			}
-			DrawPlayableboard();
-			if(turn_flag == WHITE)
-			{
-				memcpy(tempChessboard, Chessboard, sizeof(int) * 64);
-				memcpy(tempPlayableboard, Playableboard, sizeof(int) * 64);
-				AI_start(Chessboard, Playableboard, turn);
-				memcpy(Chessboard,tempChessboard,sizeof(int) * 64);
-				memcpy(Playableboard, tempPlayableboard, sizeof(int) * 64);
-			}
-			printf("It is WHITE turn, please input row and line:\n");
-			scanf("%d %d",&row,&line);
-			if(PlayChess(row,line,turn))
-			{
-				turn = BLACK;
-				runtime++; 
-			}
-		}
-		if(IfGameOver(Chessboard))
-		{
-			printf("GameOver\n");
-			break;
-		}
-	}
-	return 0;
+	FILE *fp;
+	fp = fopen(config, "rt");
+	int ch, i = 0, n = 0, k =0;
+	char str[10];
+	//printf("Reading config\n");
+	while((ch = fgetc(fp)) != EOF) {
+        if(ch == '\t' || ch == '\n') {
+            if(i > 0) {
+                str[i++] = '\0';
+                Constant[k++] = atof(str);
+                i = 0;
+                ++n;
+            }
+        }
+        else str[i++] = ch;
+    }
+	//printf("Reading config terminated.\n");
+
+	fclose(fp);
+	return;
 }

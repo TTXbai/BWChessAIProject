@@ -5,37 +5,6 @@
 int Chessboard[64];
 int Playableboard[64];
 
-/*int main()
-{
-	int turn = BLACK;
-	int row,line;
-	InitChessboard();
-	while(1)
-	{
-		DrawChessboard();
-		if(turn == BLACK)
-		{
-			RefreshPlayableboard(turn);
-			DrawPlayableboard();
-			printf("It is BLACK turn, please input row and line:\n");
-			scanf("%d %d",&row,&line);
-			if(PlayChess(row,line,turn))
-			turn = WHITE;
-		}
-		else if(turn == WHITE)
-		{
-			RefreshPlayableboard(turn);
-			DrawPlayableboard();
-			printf("It is WHITE turn, please input row and line:\n");
-			scanf("%d %d",&row,&line);
-			if(PlayChess(row,line,turn))
-			turn = BLACK;
-		}
-		//Judge if game over
-	}
-	return 0;
-}*/
-
 void InitChessboard()
 {
 	int i;
@@ -968,4 +937,18 @@ int IfGameOver(int Chessboard_A[64])
 			return 1;
 	}
 	return 0;
+}
+
+
+int JudgeWinner(int ChessBorad[64])
+{
+	int i;
+	int score = 0;
+	for(i = 0; i < 64; i++)
+	{
+		score += ChessBorad[i];
+	}
+	if(score > 0) return 1;
+	else if (score == 0) return 0;
+	else return -1;
 }
